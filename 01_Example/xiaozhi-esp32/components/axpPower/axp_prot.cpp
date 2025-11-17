@@ -50,7 +50,7 @@ void axp_i2c_prot_init(void) {
 
 void axp_cmd_init(void) {
     ///* Set up the startup battery temperature management. disableTSPinMeasure() - Disable battery temperature measurement. */
-    //axp2101.disableTSPinMeasure();
+    axp2101.disableTSPinMeasure();
     int data = axp2101.readRegister(0x26);
     ESP_LOGW("axp2101_init_log","reg_26:0x%02x",data);
     if(data & 0x01) {

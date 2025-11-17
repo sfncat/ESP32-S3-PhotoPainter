@@ -116,6 +116,13 @@ class waveshare_PhotoPainter : public WifiBoard {
             xEventGroupSetBits(ai_IMG_Group, 0x08); //Low-power mode
             return true;
         });
+
+        mcp_server.AddTool("self.disp.isSHTC3", "获取设备温度和湿度", PropertyList(), [this](const PropertyList &) -> ReturnValue {
+            ESP_LOGI("MCP", "进入MCP isSHTC3");
+            char *str = Get_TemperatureHumidity();
+            if(str) return str;
+            else return NULL;
+        });
     }
 
   public:

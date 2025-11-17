@@ -26,7 +26,9 @@ esp32_ai_bsp *dev_ai;
 static uint8_t *epd_blackImage = NULL; 
 static uint32_t Imagesize;             
 
+i2c_equipment_shtc3 *dev_shtc3 = NULL;
 json_data_t *json_data = NULL; 
+char THData[40];
 
 int                sdcard_bmp_Quantity = 0; // The number of images in the sdcard directory  // Used in Xiaozhi main code
 int                sdcard_doc_count    = 0; // The index of the image  // Used in Xiaozhi main code
@@ -301,6 +303,7 @@ void key_wakeUp_user_Task(void *arg) {
     for (;;) {
         EventBits_t even = xEventGroupWaitBits(key_groups, (0x01), pdTRUE, pdFALSE, pdMS_TO_TICKS(2000));
         if (even & 0x01) {
+            gpio_set_level((gpio_num_t) 45, 0);
             std::string wake_word = "你好小智";
             Application::GetInstance().WakeWordInvoke(wake_word);
         }
@@ -311,14 +314,24 @@ void pwr_sleep_user_Task(void *arg) {
     for (;;) {
         EventBits_t even = xEventGroupWaitBits(pwr_groups, (0x01), pdTRUE, pdFALSE, pdMS_TO_TICKS(2000));
         if (even & 0x01) {
-            xEventGroupSetBits(ai_IMG_Group, 0x08); 
+            xEventGroupSetBits(ai_IMG_Group, 0x08);
+            gpio_set_level((gpio_num_t) 45, 1); 
         }
     }
+}
+
+char* Get_TemperatureHumidity(void) {
+    shtc3_data_t data = dev_shtc3->readTempHumi();
+    if(!data.RH || !data.Temp)
+    return NULL;
+    snprintf(THData,40,"温度:%.2f,湿度:%.2f",data.Temp,data.RH);
+    return THData;
 }
 
 void User_xiaozhi_app_init(void)                     // Initialization in the Xiaozhi mode
 {
     gpio_set_level((gpio_num_t) 45, 0);
+    dev_shtc3 = new i2c_equipment_shtc3();
     ai_img_while_semap = xSemaphoreCreateBinary();
     str_ai_chat_buff   = (char *) heap_caps_malloc(1024, MALLOC_CAP_SPIRAM);
     ai_IMG_Group       = xEventGroupCreate();
