@@ -21,18 +21,15 @@ static uint8_t           *epd_blackImage = NULL; // Image buffer
 static uint32_t           Imagesize;             // Size of image buffer
 
 static void Network_user_Task(void *arg) {
-    Imagesize =
-        ((EXAMPLE_LCD_WIDTH % 2 == 0) ? (EXAMPLE_LCD_WIDTH / 2) : (EXAMPLE_LCD_WIDTH / 2 + 1)) * EXAMPLE_LCD_HEIGHT;
+    Imagesize = ((EXAMPLE_LCD_WIDTH % 2 == 0) ? (EXAMPLE_LCD_WIDTH / 2) : (EXAMPLE_LCD_WIDTH / 2 + 1)) * EXAMPLE_LCD_HEIGHT;
     epd_blackImage = (uint8_t *) heap_caps_malloc(Imagesize * sizeof(uint8_t), MALLOC_CAP_SPIRAM);
     assert(epd_blackImage);
-    
     Paint_NewImage(epd_blackImage, EXAMPLE_LCD_WIDTH, EXAMPLE_LCD_HEIGHT, 0, EPD_7IN3E_WHITE);
     Paint_SetScale(6);
     Paint_SelectImage(epd_blackImage);
-    Paint_SetRotate(180);
+    Paint_SetRotate(90);
     for (;;) {
-        EventBits_t even =
-            xEventGroupWaitBits(server_groups, set_bit_all, pdTRUE, pdFALSE, pdMS_TO_TICKS(2000));
+        EventBits_t even = xEventGroupWaitBits(server_groups, set_bit_all, pdTRUE, pdFALSE, pdMS_TO_TICKS(2000));
         if (get_bit_button(even, 0)) 
         {
             Red_led_arg = 1;                                           
@@ -41,10 +38,7 @@ static void Network_user_Task(void *arg) {
             Red_led_arg = 0;                
         } else if (get_bit_button(even, 2)) 
         {
-            if (pdTRUE == xSemaphoreTake(epaper_gui_semapHandle,
-                                         2000)) 
-            {
-                
+            if (pdTRUE == xSemaphoreTake(epaper_gui_semapHandle,2000)) {
                 xEventGroupSetBits(Green_led_Mode_queue, set_bit_button(6));
                 Green_led_arg = 1;
                 GUI_ReadBmp_RGB_6Color("/sdcard/02_sys_ap_img/user_send.bmp", 0, 0);
@@ -54,11 +48,8 @@ static void Network_user_Task(void *arg) {
             }
         } else if (get_bit_button(even, 5)) 
         {
-            esp_sleep_pd_config(ESP_PD_DOMAIN_MAX, ESP_PD_OPTION_AUTO); 
-            esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);      
             const uint64_t ext_wakeup_pin_3_mask = 1ULL << ext_wakeup_pin_3;
-            ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(
-                ext_wakeup_pin_3_mask, ESP_EXT1_WAKEUP_ANY_LOW)); 
+            ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(ext_wakeup_pin_3_mask, ESP_EXT1_WAKEUP_ANY_LOW)); 
             ESP_ERROR_CHECK(rtc_gpio_pulldown_dis(ext_wakeup_pin_3));
             ESP_ERROR_CHECK(rtc_gpio_pullup_en(ext_wakeup_pin_3));
             esp_sleep_enable_timer_wakeup(30 * 1000 * 1000); 
@@ -84,11 +75,8 @@ static void Network_sleep_Task(void *arg) {
             vTaskDelay(pdMS_TO_TICKS(500));
             time++;
             if (time == 60) {
-                esp_sleep_pd_config(ESP_PD_DOMAIN_MAX, ESP_PD_OPTION_AUTO); 
-                esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);      
                 const uint64_t ext_wakeup_pin_3_mask = 1ULL << ext_wakeup_pin_3;
-                ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(
-                    ext_wakeup_pin_3_mask, ESP_EXT1_WAKEUP_ANY_LOW)); 
+                ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(ext_wakeup_pin_3_mask, ESP_EXT1_WAKEUP_ANY_LOW)); 
                 ESP_ERROR_CHECK(rtc_gpio_pulldown_dis(ext_wakeup_pin_3));
                 ESP_ERROR_CHECK(rtc_gpio_pullup_en(ext_wakeup_pin_3));
                 esp_sleep_enable_timer_wakeup(30 * 1000 * 1000); // 15s
@@ -124,11 +112,8 @@ static void pwr_button_user_Task(void *arg) {
             xEventGroupWaitBits(pwr_groups, set_bit_all, pdTRUE, pdFALSE, pdMS_TO_TICKS(2000));
         if (get_bit_button(even, 0)) 
         {
-            esp_sleep_pd_config(ESP_PD_DOMAIN_MAX, ESP_PD_OPTION_AUTO); 
-            esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);      
             const uint64_t ext_wakeup_pin_3_mask = 1ULL << ext_wakeup_pin_3;
-            ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(
-                ext_wakeup_pin_3_mask, ESP_EXT1_WAKEUP_ANY_LOW)); 
+            ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(ext_wakeup_pin_3_mask, ESP_EXT1_WAKEUP_ANY_LOW)); 
             ESP_ERROR_CHECK(rtc_gpio_pulldown_dis(ext_wakeup_pin_3));
             ESP_ERROR_CHECK(rtc_gpio_pullup_en(ext_wakeup_pin_3));
             esp_sleep_enable_timer_wakeup(30 * 1000 * 1000);

@@ -37,8 +37,6 @@ static void pwr_button_user_Task(void *arg) {
                                                pdFALSE, pdMS_TO_TICKS(2000));
         if (get_bit_button(even, 0)) // Immediately enter low-power mode
         {
-            esp_sleep_pd_config(ESP_PD_DOMAIN_MAX, ESP_PD_OPTION_AUTO);
-            esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);     
             const uint64_t ext_wakeup_pin_1_mask = 1ULL << ext_wakeup_pin_1;
             const uint64_t ext_wakeup_pin_3_mask = 1ULL << ext_wakeup_pin_3;
             ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(ext_wakeup_pin_1_mask | ext_wakeup_pin_3_mask, ESP_EXT1_WAKEUP_ANY_LOW)); 
@@ -100,16 +98,9 @@ static void default_sleep_user_Task(void *arg) {
     for (;;) {
         if (pdTRUE == xSemaphoreTake(sleep_Semp, portMAX_DELAY)) {
             if (*sleep_arg == 1) {
-                esp_sleep_pd_config(
-                    ESP_PD_DOMAIN_MAX,
-                    ESP_PD_OPTION_AUTO);   
-                esp_sleep_disable_wakeup_source(
-                    ESP_SLEEP_WAKEUP_ALL); 
                 const uint64_t ext_wakeup_pin_1_mask = 1ULL << ext_wakeup_pin_1;
                 const uint64_t ext_wakeup_pin_3_mask = 1ULL << ext_wakeup_pin_3;
-                ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(
-                    ext_wakeup_pin_1_mask | ext_wakeup_pin_3_mask,
-                    ESP_EXT1_WAKEUP_ANY_LOW)); 
+                ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(ext_wakeup_pin_1_mask | ext_wakeup_pin_3_mask,ESP_EXT1_WAKEUP_ANY_LOW)); 
                 ESP_ERROR_CHECK(rtc_gpio_pulldown_dis(ext_wakeup_pin_3));
                 ESP_ERROR_CHECK(rtc_gpio_pullup_en(ext_wakeup_pin_3));
                 esp_sleep_enable_timer_wakeup(basic_rtc_set_time * 1000 * 1000);

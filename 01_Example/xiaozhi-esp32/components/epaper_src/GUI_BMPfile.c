@@ -460,7 +460,6 @@ UBYTE GUI_ReadBmp_RGB_4Color(const char *path, UWORD Xstart, UWORD Ystart)
 #if 1
 UBYTE GUI_ReadBmp_RGB_6Color(const char *path, UWORD Xstart, UWORD Ystart)
 {
-#if 0
     FILE *fp;                     //Define a file pointer
     BMPFILEHEADER bmpFileHeader;  //Define a bmp file header structure
     BMPINFOHEADER bmpInfoHeader;  //Define a bmp info header structure
@@ -475,60 +474,32 @@ UBYTE GUI_ReadBmp_RGB_6Color(const char *path, UWORD Xstart, UWORD Ystart)
     fseek(fp, 0, SEEK_SET);
     fread(&bmpFileHeader, sizeof(BMPFILEHEADER), 1, fp);    //sizeof(BMPFILEHEADER) must be 14
     fread(&bmpInfoHeader, sizeof(BMPINFOHEADER), 1, fp);    //sizeof(BMPFILEHEADER) must be 50
-    printf("pixel = %ld * %ld\r\n", bmpInfoHeader.biWidth, bmpInfoHeader.biHeight);
-	
-    UDOUBLE Image_Byte = bmpInfoHeader.biWidth * bmpInfoHeader.biHeight * 3;
-
-    UBYTE *Image = (UBYTE *)heap_caps_malloc(1000 * sizeof(uint8_t), MALLOC_CAP_8BIT);    
-    //for(int i = 0; i<Image_Byte; i++)
-    memset(Image, 0xFF, Image_Byte);
-    return 0;
-#else
-    FILE *fp;                     //Define a file pointer
-    BMPFILEHEADER bmpFileHeader;  //Define a bmp file header structure
-    BMPINFOHEADER bmpInfoHeader;  //Define a bmp info header structure
-    
-    // Binary file open
-    if((fp = fopen(path, "rb")) == NULL) {
-        ESP_LOGE(TAG,"Cann't open the file!");
-        return 0;
-    }
-
-    // Set the file pointer from the beginning
-    fseek(fp, 0, SEEK_SET);
-    fread(&bmpFileHeader, sizeof(BMPFILEHEADER), 1, fp);    //sizeof(BMPFILEHEADER) must be 14
-    fread(&bmpInfoHeader, sizeof(BMPINFOHEADER), 1, fp);    //sizeof(BMPFILEHEADER) must be 50
-    printf("pixel = %ld * %ld\r\n", bmpInfoHeader.biWidth, bmpInfoHeader.biHeight);
+    ESP_LOGW(TAG,"(width,height) = (%ld * %ld)", bmpInfoHeader.biWidth, bmpInfoHeader.biHeight);
 	
     UDOUBLE Image_Byte = bmpInfoHeader.biWidth * bmpInfoHeader.biHeight * 3;
 
     UBYTE *Image = (UBYTE *)heap_caps_malloc(Image_Byte * sizeof(uint8_t), MALLOC_CAP_SPIRAM);    
-    //for(int i = 0; i<Image_Byte; i++)
-    //memset(Image, 0xFF, Image_Byte);
-    //ESP_LOGE("FILE","%ld",Image_Byte);
-    // Determine if it is a monochrome bitmap
     int readbyte = bmpInfoHeader.biBitCount;
     if(readbyte != 24){
         ESP_LOGE(TAG,"Bmp image is not 24 bitmap!");
-        exit(0);
+        return 0;
     }
-    // Read image data into the cache
     UWORD x, y;
     UBYTE Rdata[3];
     fseek(fp, bmpFileHeader.bOffset, SEEK_SET);
     
-    for(y = 0; y < bmpInfoHeader.biHeight; y++) {//Total display column
-        for(x = 0; x < bmpInfoHeader.biWidth ; x++) {//Show a line in the line
+    for(y = 0; y < bmpInfoHeader.biHeight; y++) {       //Total display column
+        for(x = 0; x < bmpInfoHeader.biWidth ; x++) {   //Show a line in the line
             if(fread((char *)Rdata, 1, 1, fp) != 1) {
-                perror("get bmpdata:\r\n");
+                ESP_LOGE(TAG,"Get Bmpdata Failure");
                 break;
             }
 			if(fread((char *)Rdata+1, 1, 1, fp) != 1) {
-                perror("get bmpdata:\r\n");
+                ESP_LOGE(TAG,"Get Bmpdata Failure");
                 break;
             }
 			if(fread((char *)Rdata+2, 1, 1, fp) != 1) {
-                perror("get bmpdata:\r\n");
+                ESP_LOGE(TAG,"Get Bmpdata Failure");
                 break;
             }
 
@@ -540,8 +511,6 @@ UBYTE GUI_ReadBmp_RGB_6Color(const char *path, UWORD Xstart, UWORD Ystart)
 				Image[x+(y* bmpInfoHeader.biWidth )] =  2;//Yellow
 			}else if(Rdata[0] == 0 && Rdata[1] == 0 && Rdata[2] == 255){
 				Image[x+(y* bmpInfoHeader.biWidth )] =  3;//Red
-			// }else if(Rdata[0] == 0 && Rdata[1] == 128 && Rdata[2] == 255){
-			// 	Image[x+(y* bmpInfoHeader.biWidth )] =  4;//Orange
 			}else if(Rdata[0] == 255 && Rdata[1] == 0 && Rdata[2] == 0){
 				Image[x+(y* bmpInfoHeader.biWidth )] =  5;//Blue
 			}else if(Rdata[0] == 0 && Rdata[1] == 255 && Rdata[2] == 0){
@@ -551,7 +520,6 @@ UBYTE GUI_ReadBmp_RGB_6Color(const char *path, UWORD Xstart, UWORD Ystart)
     }
     fclose(fp);
    
-    // Refresh the image to the display buffer based on the displayed orientation
     for(y = 0; y < bmpInfoHeader.biHeight; y++) {
         for(x = 0; x < bmpInfoHeader.biWidth; x++) {
             if(x > Paint.Width || y > Paint.Height) {
@@ -563,7 +531,6 @@ UBYTE GUI_ReadBmp_RGB_6Color(const char *path, UWORD Xstart, UWORD Ystart)
     heap_caps_free(Image);
     Image = NULL;
     return 0;
-#endif
 }
 #else
 

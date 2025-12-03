@@ -126,7 +126,6 @@ static void Red_led_user_Task(void *arg) {
     }
 }
 
-
 static void key1_button_user_Task(void *arg) {
     esp_err_t ret;
     for (;;) {
