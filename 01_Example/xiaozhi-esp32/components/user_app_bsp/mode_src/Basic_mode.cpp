@@ -42,7 +42,7 @@ static void pwr_button_user_Task(void *arg) {
             ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(ext_wakeup_pin_1_mask | ext_wakeup_pin_3_mask, ESP_EXT1_WAKEUP_ANY_LOW)); 
             ESP_ERROR_CHECK(rtc_gpio_pulldown_dis(ext_wakeup_pin_3));
             ESP_ERROR_CHECK(rtc_gpio_pullup_en(ext_wakeup_pin_3));
-            esp_sleep_enable_timer_wakeup(basic_rtc_set_time * 1000 * 1000);
+            esp_sleep_enable_timer_wakeup((uint64_t)basic_rtc_set_time * 1000000ULL);
             //axp_basic_sleep_start();
             vTaskDelay(pdMS_TO_TICKS(500));
             esp_deep_sleep_start(); 
@@ -103,7 +103,7 @@ static void default_sleep_user_Task(void *arg) {
                 ESP_ERROR_CHECK(esp_sleep_enable_ext1_wakeup_io(ext_wakeup_pin_1_mask | ext_wakeup_pin_3_mask,ESP_EXT1_WAKEUP_ANY_LOW)); 
                 ESP_ERROR_CHECK(rtc_gpio_pulldown_dis(ext_wakeup_pin_3));
                 ESP_ERROR_CHECK(rtc_gpio_pullup_en(ext_wakeup_pin_3));
-                esp_sleep_enable_timer_wakeup(basic_rtc_set_time * 1000 * 1000);
+                esp_sleep_enable_timer_wakeup((uint64_t)basic_rtc_set_time * 1000000ULL);
                 //axp_basic_sleep_start(); 
                 vTaskDelay(pdMS_TO_TICKS(500));
                 esp_deep_sleep_start();  
@@ -136,13 +136,13 @@ void User_Basic_mode_app_init(void) {
     sleep_Semp  = xSemaphoreCreateBinary();
     xEventGroupSetBits(Red_led_Mode_queue, set_bit_button(0));  
     ai_model_t *ai_model_data = NULL;
-    if ((13 * 60) == basic_rtc_set_time) {
+    //if ((13 * 60) == basic_rtc_set_time) {
         ai_model_data = json_sdcard_txt_aimodel();
         if (ai_model_data != NULL) {                            
             basic_rtc_set_time = ai_model_data->time;
             ESP_LOGI("TIMER", "basic_rtc_set_time:%d", basic_rtc_set_time);
         }
-    }
+    //}
     if(ai_model_data != NULL) {free(ai_model_data);ai_model_data = NULL;}
     list_scan_dir("/sdcard/06_user_foundation_img");        
     sdcard_Basic_bmp = list_iterator();
