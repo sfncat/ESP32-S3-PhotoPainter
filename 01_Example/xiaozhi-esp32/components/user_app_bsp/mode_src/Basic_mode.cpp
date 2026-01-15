@@ -22,10 +22,6 @@ static SemaphoreHandle_t sleep_Semp;          // Binary call low-power task
 static uint8_t           wakeup_basic_flag = 0;
 static list_t* ListHost;
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 162a8193bace6529f0abe383c1670767954395eb
 
 static void pwr_button_user_Task(void *arg) {
     for (;;) {
