@@ -8,9 +8,11 @@
 #include "button_bsp.h"
 #include "power_bsp.h"
 #include "led_bsp.h"
+#include "imgdecode_app.h"
 
 CustomSDPort *SDPort = NULL;
-ePaperPort ePaperDisplay(11,10,8,9,12,13,800,480);
+ImgDecodeDither decdither;
+ePaperPort ePaperDisplay(decdither,11,10,8,9,12,13,800,480,1350,1350);
 I2cMasterBus I2cBus(48,47,0);
 
 SemaphoreHandle_t  epaper_gui_semapHandle = NULL; // Mutual exclusion lock to prevent repeated refreshing
@@ -96,8 +98,7 @@ static void Green_led_user_Task(void *arg) {
 static void Red_led_user_Task(void *arg) {
     uint8_t *led_arg = (uint8_t *) arg;
     for (;;) {
-        EventBits_t even =
-            xEventGroupWaitBits(Red_led_Mode_queue, set_bit_all, pdFALSE, pdFALSE, portMAX_DELAY);
+        EventBits_t even = xEventGroupWaitBits(Red_led_Mode_queue, set_bit_all, pdFALSE, pdFALSE, portMAX_DELAY);
         if (get_bit_data(even, 0)) {
             Led_SetLevel(LED_PIN_Red, LED_ON);
             xEventGroupClearBits(Red_led_Mode_queue, rset_bit_data(0));
@@ -110,6 +111,15 @@ static void Red_led_user_Task(void *arg) {
                 Led_SetLevel(LED_PIN_Red, LED_ON);
             }
             xEventGroupClearBits(Red_led_Mode_queue, rset_bit_data(6));
+        }
+        if (even & GroupBit1) {
+            for(int i = 0; i < 5; i++) {
+                Led_SetLevel(LED_PIN_Red, LED_ON);
+                vTaskDelay(pdMS_TO_TICKS(400));
+                Led_SetLevel(LED_PIN_Red, LED_OFF);
+                vTaskDelay(pdMS_TO_TICKS(400));
+            }
+            xEventGroupClearBits(Red_led_Mode_queue, GroupBit1);
         }
     }
 }

@@ -1,7 +1,7 @@
 idf_component_register(
     SRCS
     "ai_app.cpp"
-    "jpegdecode_app.cpp"
+    "imgdecode_app.cpp"
     "client_app.c"
     "server_app.cpp"
     "./list_src/list_iterator.c"
@@ -11,13 +11,17 @@ idf_component_register(
     "./jpg_src/image_io.c"
     "./jpg_src/test_decoder.c"
     PRIV_REQUIRES
+    user_app_bsp
     espressif__esp_new_jpeg 
     esp_http_client
+    espressif__mdns
     port_bsp
     esp_wifi
     esp_http_server
     json
-    INCLUDE_DIRS 
+    REQUIRES
+    espressif__libpng
+    INCLUDE_DIRS
     "./" 
     "./jpg_src"
     "./json_inc"

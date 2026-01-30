@@ -11,14 +11,17 @@ idf_component_register(
     "./src/fonts/font14CN.c"
     "./src/fonts/font18CN.c" 
     "./src/fonts/font22CN.c"
+    "traverse_nvs.cpp"
     PRIV_REQUIRES 
-    driver
+    nvs_flash
     esp_timer
     codec_board 
     REQUIRES
     esp_driver_sdmmc
     fatfs
     app_bsp
+    REQUIRES
+    driver
     INCLUDE_DIRS 
     "./" 
     "./src/multi_button"

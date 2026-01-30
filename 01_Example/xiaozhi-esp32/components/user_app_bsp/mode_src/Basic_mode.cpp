@@ -56,12 +56,11 @@ static void boot_button_user_Task(void *arg) {
                     }
                     ESP_LOGW("node", "%ld", sdcard_Basic_count);
                     sdcard_Basic_count++;
-                    if (sdcard_node != NULL) 
-                    {
+                    if (sdcard_node != NULL) {
                         xEventGroupSetBits(Green_led_Mode_queue,set_bit_button(6));
                         Green_led_arg                   = 1;
                         CustomSDPortNode_t *sdcard_Name_node = (CustomSDPortNode_t *) sdcard_node->val;
-                        ePaperDisplay.EPD_SDcardBmpShakingColor(sdcard_Name_node->sdcard_name,0,0);
+                        ePaperDisplay.EPD_SDcardScaleIMGShakingColor(sdcard_Name_node->sdcard_name,0,0);
                         ePaperDisplay.EPD_Display();
                         xSemaphoreGive(epaper_gui_semapHandle); 
                         Green_led_arg = 0;
@@ -112,7 +111,7 @@ static void get_wakeup_gpio(void) {
 void User_Basic_mode_app_init(void) {
     ListHost = SDPort->SDPort_GetListHost();
     sleep_Semp  = xSemaphoreCreateBinary();
-    BaseAIModel model(SDPort);
+    BaseAIModel model(SDPort,decdither);
     xEventGroupSetBits(Red_led_Mode_queue, set_bit_button(0));  
     BaseAIModelConfig_t *AIModelConfig = NULL;
     AIModelConfig = model.BaseAIModel_SdcardReadAIModelConfig();

@@ -38,7 +38,6 @@ class waveshare_PhotoPainter : public WifiBoard {
         auto &mcp_server = McpServer::GetInstance();
         mcp_server.AddTool("self.disp.SwitchPictures", "切换本地或 SD 卡中的图片，通过整数参数指定图片序号（如 “显示第 1 张图片”）", PropertyList({Property("value", kPropertyTypeInteger, 1, sdcard_bmp_Quantity)}), [this](const PropertyList &properties) -> ReturnValue {
             int value = properties["value"].value<int>();
-            ESP_LOGE("vlaue", "%d", value);
             sdcard_doc_count = value;
             xEventGroupSetBits(epaper_groups, 0x02);        //  0000  0010
             return true;
@@ -63,13 +62,13 @@ class waveshare_PhotoPainter : public WifiBoard {
             return true;
         });
 
-        mcp_server.AddTool("self.disp.imgloop", "进入轮询播放图片模式", PropertyList(), [this](const PropertyList &) -> ReturnValue {
+        mcp_server.AddTool("self.disp.imgloop", "进入轮询播放图片模式,循环sd卡里面的图片", PropertyList(), [this](const PropertyList &) -> ReturnValue {
             ESP_LOGI("MCP", "进入imgloop");
             xEventGroupSetBits(ai_IMG_LoopGroup, 0x01); 
             return true;
         });
 
-        mcp_server.AddTool("self.disp.imgloopEit", "退出轮询播放图片模式", PropertyList(), [this](const PropertyList &) -> ReturnValue {
+        mcp_server.AddTool("self.disp.imgloopEit", "退出轮询播放图片模式,不在循环sd卡里面的图片", PropertyList(), [this](const PropertyList &) -> ReturnValue {
             ESP_LOGI("MCP", "进入imgloopEit");
             xEventGroupClearBits(ai_IMG_LoopGroup, 0x01); 
             return true;

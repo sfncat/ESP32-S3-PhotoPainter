@@ -4,7 +4,9 @@
 #include "sdcard_bsp.h"
 #include "display_bsp.h"
 #include "i2c_bsp.h"
+#include "imgdecode_app.h"
 
+extern ImgDecodeDither decdither;
 extern CustomSDPort *SDPort;
 extern ePaperPort ePaperDisplay;
 extern I2cMasterBus I2cBus;
@@ -31,11 +33,7 @@ extern int is_ai_img;
 extern EventGroupHandle_t ai_IMG_Group;
 extern SemaphoreHandle_t ai_img_while_semap;
 
-
 void User_Basic_mode_app_init(void);
-
-
 void User_Network_mode_app_init(void);
-
-
 void Mode_Selection_Init(void);
+uint8_t Get_CurrentlyNetworkMode(void);
