@@ -2,7 +2,7 @@
 
 #include <esp_http_client.h>
 #include "sdcard_bsp.h"
-#include "jpegdecode_app.h"
+#include "imgdecode_app.h"
 #include "ArduinoJson.h"
 
 
@@ -20,10 +20,11 @@ typedef struct
     char key[100];
 }BaseAIModelConfig_t;
 
-class BaseAIModel : public JpegDecodeDither
+class BaseAIModel
 {
 private:
     CustomSDPort *SDPort_;
+    ImgDecodeDither &dither_;
     const char *TAG = "AIModel";
     JsonDocument doc;
     char *ark_request_body = NULL;      // Chat message buffer
@@ -48,13 +49,14 @@ private:
     uint8_t BaseAIModel_PsramToSdcard(char *strPath,uint8_t *buffer,int len);       // Copy the data from the PSRAM to the SD card
 
 public:
-    BaseAIModel(CustomSDPort *SDPort,const int width,const int height);
-    BaseAIModel(CustomSDPort *SDPort);
+    BaseAIModel(CustomSDPort *SDPort,ImgDecodeDither &dither,const int width,const int height);
+    BaseAIModel(CustomSDPort *SDPort,ImgDecodeDither &dither);
     ~BaseAIModel();
     BaseAIModelConfig_t* BaseAIModel_SdcardReadAIModelConfig();
     void BaseAIModel_AIModelInit(const char *ai_model, const char *ai_url, const char *ark_api_key);
     void BaseAIModel_SetChat(const char *str);                                      // Generate chat
     char *BaseAIModel_GetImgName();                                                 // Obtain the path of the last generated BMP file on the SDcard
+    char *Get_AiTFImgName() {return sdcard_path;}
 };
 
 

@@ -184,20 +184,23 @@ void CustomSDPort::SDPort_ScanListDir(const char *path) {
         if (entry->d_type == DT_DIR) { 
             ESP_LOGI(TAG, "Directory: %s", entry->d_name);
         } else {
-            if (strstr(entry->d_name, ".bmp") == NULL) {
+            if(strstr(entry->d_name,"sys_decode.bmp")) {   //这个文件是jpg或者png转码成bmp的,不需要加入列表
                 continue;
             }
-            uint16_t       _strlen   = strlen(path) + strlen(entry->d_name) + 1 + 1; 
-            if (_strlen >= 80) {
-                ESP_LOGE(TAG, "scan file fill _strlen:%d", _strlen);
-                continue;
-            }
-            CustomSDPortNode_t *node_data = (CustomSDPortNode_t *) LIST_MALLOC(sizeof(CustomSDPortNode_t));
-            assert(node_data);
-            snprintf(node_data->sdcard_name, sizeof(node_data->sdcard_name), "%s/%s", path, entry->d_name); 
-            list_rpush(ScanListHandle, list_node_new(node_data)); 
-            ESP_LOGW("Scan_Dir","DirDoc:%s,size:%d",node_data->sdcard_name,strlen(node_data->sdcard_name));
-            ImgValue++;                                      
+            if (strstr(entry->d_name, ".bmp") || strstr(entry->d_name, ".jpg") || strstr(entry->d_name, ".png") \
+                || strstr(entry->d_name, ".BMP") || strstr(entry->d_name, ".JPG") || strstr(entry->d_name, ".PNG")) {
+                uint16_t       Namestrlen   = strlen(path) + strlen(entry->d_name) + 1 + 1; 
+                if (Namestrlen >= 80) {
+                    ESP_LOGE(TAG, "scan file fill _strlen:%d", Namestrlen);
+                    continue;
+                }
+                CustomSDPortNode_t *node_data = (CustomSDPortNode_t *) LIST_MALLOC(sizeof(CustomSDPortNode_t));
+                assert(node_data);
+                snprintf(node_data->sdcard_name, sizeof(node_data->sdcard_name), "%s/%s", path, entry->d_name); 
+                list_rpush(ScanListHandle, list_node_new(node_data)); 
+                ESP_LOGW("Scan_Dir","DirDoc:%s,size:%d",node_data->sdcard_name,strlen(node_data->sdcard_name));
+                ImgValue++;
+            }                                     
         }
     }
     closedir(dir);

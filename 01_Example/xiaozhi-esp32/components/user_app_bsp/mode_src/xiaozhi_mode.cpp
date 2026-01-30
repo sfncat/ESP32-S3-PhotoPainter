@@ -14,6 +14,7 @@
 
 //#include "esp_mac.h"
 
+static const char *TAG = "xiaozhi_mode";
 BaseAIModel *AiModel = NULL;
 WeatherPort WeaPort;
 WeatherData_t *WeatherData = NULL;          
@@ -89,13 +90,11 @@ static void gui_user_Task(void *arg) {
     ePaperDisplay.EPD_Init();
     for (;;) {
         EventBits_t even = xEventGroupWaitBits(epaper_groups, set_bit_all, pdTRUE, pdFALSE, portMAX_DELAY); 
-        if (pdTRUE == xSemaphoreTake(epaper_gui_semapHandle, 2000))                                         
-        {
+        if (pdTRUE == xSemaphoreTake(epaper_gui_semapHandle, 2000)) {
             xEventGroupSetBits(Green_led_Mode_queue, set_bit_button(6));
             Green_led_arg = 1;
             is_ai_img     = 0;           
-            if (get_bit_button(even, 0)) 
-            {
+            if (get_bit_button(even, 0)) {
                 vTaskDelay(pdMS_TO_TICKS(3000));  
                 char      *strURL = NULL;
                 WeatherAqi_t aqi_data;
@@ -163,29 +162,24 @@ static void gui_user_Task(void *arg) {
                 xEventGroupClearBits(ai_IMG_LoopGroup, 0x01);  
                 *sdcard_doc -= 1;
                 list_node_t *sdcard_node = list_at(ListHost, *sdcard_doc); 
-                if (sdcard_node != NULL)                                                 
-                {
+                if (sdcard_node != NULL) {
                     CustomSDPortNode_t *sdcard_Name_node = (CustomSDPortNode_t *) sdcard_node->val;
                     SDPort->SDPort_SetCurrentlyNode(sdcard_node);
-                    ePaperDisplay.EPD_SDcardBmpShakingColor(sdcard_Name_node->sdcard_name,0,0);
+                    ESP_LOGW(TAG,"voice_Sort:%d,list_Sort:%d,path:%s",(*sdcard_doc+1),*sdcard_doc,sdcard_Name_node->sdcard_name);
+                    ePaperDisplay.EPD_SDcardScaleIMGShakingColor(sdcard_Name_node->sdcard_name,0,0);
                     ePaperDisplay.EPD_Display();
                 }
-            } else if (get_bit_button(even, 2)) { 
-                xEventGroupClearBits(ai_IMG_LoopGroup, 0x01);                       
-                list_node_t *node = list_at(ListHost, -1);
-                if (node != NULL) {
-                    CustomSDPortNode_t *sdcard_Name_node_ai = (CustomSDPortNode_t *) node->val;
-                    SDPort->SDPort_SetCurrentlyNode(node);
-                    ePaperDisplay.EPD_SDcardBmpShakingColor(sdcard_Name_node_ai->sdcard_name,0,0);
-                    ePaperDisplay.EPD_Display();
-                }
+            } else if (get_bit_button(even, 2)) {                     
+                ePaperDisplay.EPD_SDcardBmpShakingColor(AiModel->Get_AiTFImgName(),0,0);
+                ePaperDisplay.EPD_Display();
             } else if (get_bit_button(even, 3)) {
                 img_loopCount--;                  
                 list_node_t *node = list_at(ListHost, img_loopCount);
                 if (node != NULL) {
                     CustomSDPortNode_t *sdcard_Name_node_ai = (CustomSDPortNode_t *) node->val;
                     SDPort->SDPort_SetCurrentlyNode(node);
-                    ePaperDisplay.EPD_SDcardBmpShakingColor(sdcard_Name_node_ai->sdcard_name,0,0);
+                    ESP_LOGW(TAG,"loop_Sort:%d,list_Sort:%d,path:%s",(img_loopCount+1),img_loopCount,sdcard_Name_node_ai->sdcard_name);
+                    ePaperDisplay.EPD_SDcardScaleIMGShakingColor(sdcard_Name_node_ai->sdcard_name,0,0);
                     ePaperDisplay.EPD_Display();
                 }
                 if(img_loopCount == 0) {
@@ -205,14 +199,11 @@ static void ai_IMG_Task(void *arg) {
         EventBits_t even = xEventGroupWaitBits(ai_IMG_Group, (0x01) | (0x02) | (0x08), pdTRUE, pdFALSE, portMAX_DELAY);
         if (get_bit_button(even, 0)) {
             ESP_LOGW("chat", "%s", chatStr);
+            xEventGroupClearBits(ai_IMG_LoopGroup, 0x01);  /*退出轮播*/
             AiModel->BaseAIModel_SetChat(chatStr);         
             char *str = AiModel->BaseAIModel_GetImgName();
             if (str != NULL) {
                 ESP_LOGW("ai_IMG_Task", "Generated image path: %s", str); 
-                CustomSDPortNode_t *sdcard_node_data = (CustomSDPortNode_t *) malloc(sizeof(CustomSDPortNode_t));
-                assert(sdcard_node_data);
-                strcpy(sdcard_node_data->sdcard_name, str);
-                list_rpush(ListHost, list_node_new(sdcard_node_data)); 
                 xEventGroupSetBits(epaper_groups, set_bit_button(2));                
             }
         } else if (get_bit_button(even, 1)) {
@@ -280,7 +271,7 @@ void User_xiaozhi_app_init(void)                        // Initialization in the
 {
     PeraPort = new Shtc3Port(I2cBus);
     ListHost = SDPort->SDPort_GetListHost();
-    AiModel = new BaseAIModel(SDPort,800,480);
+    AiModel = new BaseAIModel(SDPort,decdither,800,480);
     BaseAIModelConfig_t* AIconfig = AiModel->BaseAIModel_SdcardReadAIModelConfig();
     if (AIconfig != NULL) {                             //Obtain key, url, model
         ESP_LOGI("ai_model", "model:%s,key:%s,url:%s", AIconfig->model,AIconfig->key,AIconfig->url);

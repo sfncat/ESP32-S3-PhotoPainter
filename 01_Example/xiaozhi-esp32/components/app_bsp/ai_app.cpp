@@ -9,27 +9,29 @@ extern const uint8_t ark_vol_pem_start[] asm("_binary_ark_vol_pem_start");
 /*Download the CA certificate of Volcano Engine image*/
 extern const uint8_t ark_volces_chain_pem_start[] asm("_binary_volces_chain_pem_start");
 
-BaseAIModel::BaseAIModel(CustomSDPort *SDPort, const int width, const int height) : 
-SDPort_(SDPort)
+BaseAIModel::BaseAIModel(CustomSDPort *SDPort,ImgDecodeDither &dither, const int width, const int height) : 
+SDPort_(SDPort),
+dither_(dither)
 {
     width_           = width;
     height_          = height;
     ark_request_body = (char *) heap_caps_malloc(3 * 1024, MALLOC_CAP_SPIRAM);              // Store chat messages
     url_copy         = (char *) heap_caps_malloc(1024, MALLOC_CAP_SPIRAM);                  // Store the URL of the obtained image
     //jpg_buffer       = (uint8_t *) heap_caps_malloc(500 * 1024, MALLOC_CAP_SPIRAM);         // Store the JPG data
-    floyd_buffer     = (uint8_t *) heap_caps_malloc(width * height * 3, MALLOC_CAP_SPIRAM); // Store the data after applying the RGB888 jitter algorithm
+    //floyd_buffer     = (uint8_t *) heap_caps_malloc(width * height * 3, MALLOC_CAP_SPIRAM); // Store the data after applying the RGB888 jitter algorithm
     AIModelConfig    = (BaseAIModelConfig_t *) heap_caps_malloc(sizeof(BaseAIModelConfig_t),MALLOC_CAP_SPIRAM);
     AIresponse.buffer = (char *) heap_caps_malloc(500 * 1024,MALLOC_CAP_SPIRAM);
     assert(ark_request_body);
     assert(url_copy);
     //assert(jpg_buffer);
-    assert(floyd_buffer);
+    //assert(floyd_buffer);
     assert(AIModelConfig);
     assert(AIresponse.buffer);
 }
 
-BaseAIModel::BaseAIModel(CustomSDPort *SDPort):
-SDPort_(SDPort) 
+BaseAIModel::BaseAIModel(CustomSDPort *SDPort,ImgDecodeDither &dither):
+SDPort_(SDPort),
+dither_(dither)
 {
     AIModelConfig    = (BaseAIModelConfig_t *) heap_caps_malloc(sizeof(BaseAIModelConfig_t),MALLOC_CAP_SPIRAM);
     assert(AIModelConfig);
@@ -190,22 +192,23 @@ char *BaseAIModel::BaseAIModel_GetImgName() {
         return NULL;
     }
     int dec_jpg_size = 0;
-    if (JpegPort_OnePicture((uint8_t *)AIresponse.buffer, jpg_size, &jpg_dec_buffer, &dec_jpg_size) == 0) {
+    if (dither_.ImgDecode_OneJPGPicture((uint8_t *)AIresponse.buffer, jpg_size, &jpg_dec_buffer, &dec_jpg_size) != ESP_OK) {
         ESP_LOGE(TAG, "jpg dec fill");
         if (jpg_dec_buffer != NULL) {
-            JpegPort_BufferFree(jpg_dec_buffer);
+            dither_.ImgDecode_JPGBufferFree(jpg_dec_buffer);
         }
         return NULL;
     }
-    JpegPort_DitherRgb888(jpg_dec_buffer, floyd_buffer, width_, height_);   //The RGB888 data has undergone the jittering algorithm.
-    JpegPort_BufferFree(jpg_dec_buffer);                                    //Release memory
-    snprintf(sdcard_path, 98, "/sdcard/05_user_ai_img/ai_%d.bmp", path_value);
-    if (JpegPort_EncodingBmpToSdcard(sdcard_path, floyd_buffer, width_, height_) != 0) {
+    floyd_buffer     = (uint8_t *) heap_caps_malloc(width_ * height_ * 3, MALLOC_CAP_SPIRAM); // Store the data after applying the RGB888 jitter algorithm
+    dither_.ImgDecode_DitherRgb888(jpg_dec_buffer, floyd_buffer, width_, height_);            //The RGB888 data has undergone the jittering algorithm.
+    dither_.ImgDecode_JPGBufferFree(jpg_dec_buffer);                                          //Release memory
+    strcpy(sdcard_path,"/sdcard/04_sys_ai_img/sys_ai.bmp");
+    if (dither_.ImgDecode_EncodingBmpToSdcard(sdcard_path, floyd_buffer, width_, height_) != ESP_OK) {
         ESP_LOGE(TAG, "rgb888 to sdcard is bmp fill");
         return NULL;
     }
-    path_value++;
-
+    heap_caps_free(floyd_buffer);
+    floyd_buffer = NULL;
     return sdcard_path;
 }
 

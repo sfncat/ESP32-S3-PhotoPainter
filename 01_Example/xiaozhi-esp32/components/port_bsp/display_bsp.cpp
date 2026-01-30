@@ -4,7 +4,18 @@
 #include <esp_log.h>
 #include "display_bsp.h"
 
-ePaperPort::ePaperPort(int mosi, int scl, int dc, int cs, int rst, int busy, int width, int height, spi_host_device_t spihost) : mosi_(mosi), scl_(scl), dc_(dc), cs_(cs), rst_(rst), busy_(busy), width_(width), height_(height) {
+ePaperPort::ePaperPort(ImgDecodeDither &dither,int mosi, int scl, int dc, int cs, int rst, int busy, int width, int height,int scale_MaxWidth, int scale_MaxHeight, spi_host_device_t spihost) : 
+dither_(dither),
+mosi_(mosi), 
+scl_(scl), 
+dc_(dc), 
+cs_(cs), 
+rst_(rst), 
+busy_(busy), 
+width_(width), 
+height_(height),
+scale_MaxWidth_(scale_MaxWidth),
+scale_MaxHeight_(scale_MaxHeight) {
     esp_err_t        ret;
     spi_bus_config_t buscfg   = {};
     int              transfer = width_ * height_;
@@ -23,7 +34,7 @@ ePaperPort::ePaperPort(int mosi, int scl, int dc, int cs, int rst, int busy, int
     buscfg.max_transfer_sz               = transfer;
     spi_device_interface_config_t devcfg = {};
     devcfg.spics_io_num                  = -1;
-    devcfg.clock_speed_hz                = 10 * 1000 * 1000;    // Clock out at 40 MHz
+    devcfg.clock_speed_hz                = 40 * 1000 * 1000;    // Clock out at 40 MHz
     devcfg.mode                          = 0;                   // SPI mode 0
     devcfg.queue_size                    = 7;                   // We want to be able to queue 7 transactions at a time
     devcfg.flags                         = SPI_DEVICE_HALFDUPLEX;
@@ -250,6 +261,17 @@ void ePaperPort::EPD_Display() {
     EPD_TurnOnDisplay();
 }
 
+void ePaperPort::EPD_SrcDisplayCopy(uint8_t *buffer,uint32_t len,uint32_t addlen) {
+    if((addlen + len) > DisplayLen) {
+        ESP_LOGE(TAG,"Data exceeds the buffer area.");
+        return;
+    }
+    for(uint32_t i = 0; i < len; i++) {
+        RotationBuffer[addlen + i] = buffer[i];
+    }
+    ESP_LOGW(TAG,"buffer: %d",addlen + len);
+}
+
 uint8_t* ePaperPort::EPD_GetIMGBuffer() {
     return DispBuffer;
 }
@@ -348,6 +370,254 @@ void ePaperPort::EPD_SDcardBmpShakingColor(const char *path,uint16_t x_start, ui
             r = scapeBuffer[idx + 2];
             uint8_t color = EPD_ColorToePaperColor(b, g, r);
             EPD_SetPixel(x_start + x, y_start + y, color);
+        }
+    }
+}
+
+void ePaperPort::EPD_SDcardIMGShakingColor(const char *path,uint16_t x_start, uint16_t y_start) {
+    uint8_t *decimgbuff = NULL;
+    int img_len = 0;
+    uint8_t *floyd_buffer = NULL;
+    int s_width;
+    int s_height;
+    if(strstr(path, ".jpg") || strstr(path, ".JPG")) {
+        if(dither_.ImgDecode_TFOneJPGPicture(path,&decimgbuff,&img_len,&s_width,&s_height) == ESP_OK) {
+            floyd_buffer = (uint8_t *) malloc(width_ * height_ * 3);       // Store the data after applying the RGB888 jitter algorithm
+            assert(floyd_buffer);
+            ESP_LOGW(TAG,"jpgdecode:(%d,%d)",s_width,s_height);
+            dither_.ImgDecode_DitherRgb888(decimgbuff, floyd_buffer,s_width,s_height);     //The RGB888 data has undergone the jittering algorithm.
+            dither_.ImgDecode_JPGBufferFree(decimgbuff); 
+            if (dither_.ImgDecode_EncodingBmpToSdcard(img_to_bmpName, floyd_buffer, s_width,s_height) == ESP_OK) {
+                free(floyd_buffer);
+                floyd_buffer = NULL;
+                EPD_SDcardBmpShakingColor(img_to_bmpName,0,0);
+            } else {
+                ESP_LOGE(TAG, "bmp to sdcard fill");
+                free(floyd_buffer);
+                floyd_buffer = NULL;
+            }
+        } else {
+            ESP_LOGE(TAG, "jpg dec fill");
+            if (decimgbuff != NULL) {
+                dither_.ImgDecode_JPGBufferFree(decimgbuff);
+            }
+        }
+    } else if(strstr(path, ".png") || strstr(path, ".PNG")) {
+        if(dither_.ImgDecode_TFOnePNGPicture(path,&decimgbuff,&s_width,&s_height) == ESP_OK) {
+            floyd_buffer = (uint8_t *) malloc(width_ * height_ * 3);       // Store the data after applying the RGB888 jitter algorithm
+            assert(floyd_buffer);
+            ESP_LOGW(TAG,"pngdecode:(%d,%d)",s_width,s_height);
+            dither_.ImgDecode_DitherRgb888(decimgbuff, floyd_buffer,s_width,s_height);     //The RGB888 data has undergone the jittering algorithm.
+            dither_.ImgDecode_PNGBufferFree(decimgbuff); 
+            if (dither_.ImgDecode_EncodingBmpToSdcard(img_to_bmpName, floyd_buffer, s_width,s_height) == ESP_OK) {
+                free(floyd_buffer);
+                floyd_buffer = NULL;
+                EPD_SDcardBmpShakingColor(img_to_bmpName,0,0);
+            } else {
+                ESP_LOGE(TAG, "bmp to sdcard fill");
+                free(floyd_buffer);
+                floyd_buffer = NULL;
+            }
+        } else {
+            ESP_LOGE(TAG, "PNG dec fill");
+            if (decimgbuff != NULL) {
+                dither_.ImgDecode_PNGBufferFree(decimgbuff);
+            }
+        }
+    } else if(strstr(path, ".bmp") || strstr(path, ".BMP")) {
+        if(dither_.ImgDecodebmp_TFOneBMPPicture(path,&decimgbuff,&s_width,&s_height) == ESP_OK) {
+            floyd_buffer = (uint8_t *) malloc(width_ * height_ * 3);       // Store the data after applying the RGB888 jitter algorithm
+            assert(floyd_buffer);
+            ESP_LOGW(TAG,"bmpdecode:(%d,%d)",s_width,s_height);
+            dither_.ImgDecode_DitherRgb888(decimgbuff, floyd_buffer,s_width,s_height);     //The RGB888 data has undergone the jittering algorithm.
+            dither_.ImgDecode_BMPBufferFree(decimgbuff); 
+            if (dither_.ImgDecode_EncodingBmpToSdcard(img_to_bmpName, floyd_buffer, s_width,s_height) == ESP_OK) {
+                free(floyd_buffer);
+                floyd_buffer = NULL;
+                EPD_SDcardBmpShakingColor(img_to_bmpName,0,0);
+            } else {
+                ESP_LOGE(TAG, "bmp to sdcard fill");
+                free(floyd_buffer);
+                floyd_buffer = NULL;
+            }
+        } else {
+            ESP_LOGE(TAG, "BMP dec fill");
+            if (decimgbuff != NULL) {
+                dither_.ImgDecode_BMPBufferFree(decimgbuff);
+            }
+        }
+    }
+}
+
+void ePaperPort::EPD_SDcardScaleIMGShakingColor(const char *path,uint16_t x_start, uint16_t y_start) {
+    uint8_t *decimgbuff = NULL;
+    int img_len = 0;
+    uint8_t *scale_buffer = NULL;
+    uint8_t *floyd_buffer = NULL;
+    int s_width;
+    int s_height;
+    if(strstr(path, ".jpg") || strstr(path, ".JPG")) {
+        if(dither_.ImgDecode_TFOneJPGPicture(path,&decimgbuff,&img_len,&s_width,&s_height) == ESP_OK) {
+            ESP_LOGW(TAG,"jpgdecode:(%d,%d)",s_width,s_height);
+            if((s_width > scale_MaxWidth_) || (s_height > scale_MaxHeight_)) {
+                dither_.ImgDecode_JPGBufferFree(decimgbuff); 
+                return;
+            }
+            if((480 == s_width && 800 == s_height) || (800 == s_width && 480 == s_height)) {
+                floyd_buffer = (uint8_t *) malloc(width_ * height_ * 3);       // Store the data after applying the RGB888 jitter algorithm
+                assert(floyd_buffer);
+                dither_.ImgDecode_DitherRgb888(decimgbuff, floyd_buffer,s_width,s_height);     //The RGB888 data has undergone the jittering algorithm.
+                dither_.ImgDecode_JPGBufferFree(decimgbuff); 
+                if (dither_.ImgDecode_EncodingBmpToSdcard(img_to_bmpName, floyd_buffer, s_width,s_height) == ESP_OK) {
+                    free(floyd_buffer);
+                    floyd_buffer = NULL;
+                    EPD_SDcardBmpShakingColor(img_to_bmpName,0,0);
+                } else {
+                    ESP_LOGE(TAG, "bmp to sdcard fill");
+                    free(floyd_buffer);
+                    floyd_buffer = NULL;
+                }
+            } else { /*拉伸缩放*/
+                scale_buffer = (uint8_t *) malloc(width_ * height_ * 3);       // Store the data after applying the RGB888 jitter algorithm
+                assert(scale_buffer);
+                if(s_width > s_height) {
+                    dither_.ImgDecode_ScaleRgb888Nearest(decimgbuff,s_width,s_height,scale_buffer,width_,height_);
+                    s_width = width_;
+                    s_height = height_;
+                } else {
+                    dither_.ImgDecode_ScaleRgb888Nearest(decimgbuff,s_width,s_height,scale_buffer,height_,width_);
+                    s_width = height_;
+                    s_height = width_;
+                }
+                dither_.ImgDecode_JPGBufferFree(decimgbuff);
+                floyd_buffer = (uint8_t *) malloc(width_ * height_ * 3);       // Store the data after applying the RGB888 jitter algorithm
+                assert(floyd_buffer);
+                dither_.ImgDecode_DitherRgb888(scale_buffer, floyd_buffer,s_width,s_height);     //The RGB888 data has undergone the jittering algorithm.
+                free(scale_buffer);
+                scale_buffer = NULL;
+                if (dither_.ImgDecode_EncodingBmpToSdcard(img_to_bmpName, floyd_buffer, s_width,s_height) == ESP_OK) {
+                    free(floyd_buffer);
+                    floyd_buffer = NULL;
+                    EPD_SDcardBmpShakingColor(img_to_bmpName,0,0);
+                } else {
+                    ESP_LOGE(TAG, "bmp to sdcard fill");
+                    free(floyd_buffer);
+                    floyd_buffer = NULL;
+                }
+            }
+        } else { /*解码失败*/
+            ESP_LOGE(TAG, "jpg dec fill");
+            if (decimgbuff != NULL) {
+                dither_.ImgDecode_JPGBufferFree(decimgbuff);
+            }
+        }
+    } else if(strstr(path, ".png") || strstr(path, ".PNG")) {
+        if(dither_.ImgDecode_TFOnePNGPicture(path,&decimgbuff,&s_width,&s_height) == ESP_OK) {
+            if((s_width > scale_MaxWidth_) || (s_height > scale_MaxHeight_)) {
+                dither_.ImgDecode_PNGBufferFree(decimgbuff);
+                return;
+            }
+            if((480 == s_width && 800 == s_height) || (800 == s_width && 480 == s_height)) { /*正常抖动显示*/
+                floyd_buffer = (uint8_t *) malloc(width_ * height_ * 3);       // Store the data after applying the RGB888 jitter algorithm
+                assert(floyd_buffer);
+                dither_.ImgDecode_DitherRgb888(decimgbuff, floyd_buffer,s_width,s_height);     //The RGB888 data has undergone the jittering algorithm.
+                dither_.ImgDecode_JPGBufferFree(decimgbuff); 
+                if (dither_.ImgDecode_EncodingBmpToSdcard(img_to_bmpName, floyd_buffer, s_width,s_height) == ESP_OK) {
+                    free(floyd_buffer);
+                    floyd_buffer = NULL;
+                    EPD_SDcardBmpShakingColor(img_to_bmpName,0,0);
+                } else {
+                    ESP_LOGE(TAG, "bmp to sdcard fill");
+                    free(floyd_buffer);
+                    floyd_buffer = NULL;
+                }
+            } else {   /*拉伸缩放*/
+                scale_buffer = (uint8_t *) malloc(width_ * height_ * 3);       // Store the data after applying the RGB888 jitter algorithm
+                assert(scale_buffer);
+                if(s_width > s_height) {
+                    dither_.ImgDecode_ScaleRgb888Nearest(decimgbuff,s_width,s_height,scale_buffer,width_,height_);
+                    s_width = width_;
+                    s_height = height_;
+                } else {
+                    dither_.ImgDecode_ScaleRgb888Nearest(decimgbuff,s_width,s_height,scale_buffer,height_,width_);
+                    s_width = height_;
+                    s_height = width_;
+                }
+                dither_.ImgDecode_PNGBufferFree(decimgbuff);
+                floyd_buffer = (uint8_t *) malloc(width_ * height_ * 3);       // Store the data after applying the RGB888 jitter algorithm
+                assert(floyd_buffer);
+                dither_.ImgDecode_DitherRgb888(scale_buffer, floyd_buffer,s_width,s_height);     //The RGB888 data has undergone the jittering algorithm.
+                free(scale_buffer);
+                scale_buffer = NULL;
+                if (dither_.ImgDecode_EncodingBmpToSdcard(img_to_bmpName, floyd_buffer, s_width,s_height) == ESP_OK) {
+                    free(floyd_buffer);
+                    floyd_buffer = NULL;
+                    EPD_SDcardBmpShakingColor(img_to_bmpName,0,0);
+                } else {
+                    ESP_LOGE(TAG, "bmp to sdcard fill");
+                    free(floyd_buffer);
+                    floyd_buffer = NULL;
+                }
+            }
+        } else {      /*解码失败*/
+            ESP_LOGE(TAG, "PNG dec fill");
+            if (decimgbuff != NULL) {
+                dither_.ImgDecode_PNGBufferFree(decimgbuff);
+            }
+        }
+    } else if(strstr(path, ".bmp") || strstr(path, ".BMP")) {
+        if(dither_.ImgDecodebmp_TFOneBMPPicture(path,&decimgbuff,&s_width,&s_height) == ESP_OK) {
+            if((s_width > scale_MaxWidth_) || (s_height > scale_MaxHeight_)) {
+                dither_.ImgDecode_BMPBufferFree(decimgbuff);
+                return;
+            }
+            if((480 == s_width && 800 == s_height) || (800 == s_width && 480 == s_height)) { /*正常抖动显示*/
+                floyd_buffer = (uint8_t *) malloc(width_ * height_ * 3);       // Store the data after applying the RGB888 jitter algorithm
+                assert(floyd_buffer);
+                dither_.ImgDecode_DitherRgb888(decimgbuff, floyd_buffer,s_width,s_height);     //The RGB888 data has undergone the jittering algorithm.
+                dither_.ImgDecode_JPGBufferFree(decimgbuff); 
+                if (dither_.ImgDecode_EncodingBmpToSdcard(img_to_bmpName, floyd_buffer, s_width,s_height) == ESP_OK) {
+                    free(floyd_buffer);
+                    floyd_buffer = NULL;
+                    EPD_SDcardBmpShakingColor(img_to_bmpName,0,0);
+                } else {
+                    ESP_LOGE(TAG, "bmp to sdcard fill");
+                    free(floyd_buffer);
+                    floyd_buffer = NULL;
+                }
+            } else {   /*拉伸缩放*/
+                scale_buffer = (uint8_t *) malloc(width_ * height_ * 3);       // Store the data after applying the RGB888 jitter algorithm
+                assert(scale_buffer);
+                if(s_width > s_height) {
+                    dither_.ImgDecode_ScaleRgb888Nearest(decimgbuff,s_width,s_height,scale_buffer,width_,height_);
+                    s_width = width_;
+                    s_height = height_;
+                } else {
+                    dither_.ImgDecode_ScaleRgb888Nearest(decimgbuff,s_width,s_height,scale_buffer,height_,width_);
+                    s_width = height_;
+                    s_height = width_;
+                }
+                dither_.ImgDecode_BMPBufferFree(decimgbuff);
+                floyd_buffer = (uint8_t *) malloc(width_ * height_ * 3);       // Store the data after applying the RGB888 jitter algorithm
+                assert(floyd_buffer);
+                dither_.ImgDecode_DitherRgb888(scale_buffer, floyd_buffer,s_width,s_height);     //The RGB888 data has undergone the jittering algorithm.
+                free(scale_buffer);
+                scale_buffer = NULL;
+                if (dither_.ImgDecode_EncodingBmpToSdcard(img_to_bmpName, floyd_buffer, s_width,s_height) == ESP_OK) {
+                    free(floyd_buffer);
+                    floyd_buffer = NULL;
+                    EPD_SDcardBmpShakingColor(img_to_bmpName,0,0);
+                } else {
+                    ESP_LOGE(TAG, "bmp to sdcard fill");
+                    free(floyd_buffer);
+                    floyd_buffer = NULL;
+                }
+            }
+        } else {
+            ESP_LOGE(TAG, "BMP dec fill");
+            if (decimgbuff != NULL) {
+                dither_.ImgDecode_BMPBufferFree(decimgbuff);
+            }
         }
     }
 }

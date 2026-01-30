@@ -3,6 +3,7 @@
 #include <driver/gpio.h>
 #include <driver/spi_master.h>
 #include "fonts.h"
+#include "imgdecode_app.h"
 
 enum ColorSelection {
     ColorBlack = 0,    
@@ -44,6 +45,8 @@ class ePaperPort {
     uint32_t            i2c_data_pdMS_TICKS = 0;
     uint32_t            i2c_done_pdMS_TICKS = 0;
     const char         *TAG                 = "Display";
+    const char         *img_to_bmpName      = "/sdcard/06_user_foundation_img/sys_decode.bmp";
+    ImgDecodeDither &dither_;
     int                 mosi_;
     int                 scl_;
     int                 dc_;
@@ -52,6 +55,8 @@ class ePaperPort {
     int                 busy_;
     int                 width_;
     int                 height_;
+    int                 scale_MaxWidth_;
+    int                 scale_MaxHeight_;
     uint8_t            *DispBuffer = NULL;
     uint8_t            *RotationBuffer = NULL;
     uint8_t            *BmpSrcBuffer = NULL;
@@ -83,16 +88,19 @@ class ePaperPort {
     void EPD_PixelRotate();
 
   public:
-    ePaperPort(int mosi, int scl, int dc, int cs, int rst, int busy, int width, int height, spi_host_device_t spihost = SPI3_HOST);
+    ePaperPort(ImgDecodeDither &dither,int mosi, int scl, int dc, int cs, int rst, int busy, int width, int height, int scale_MaxWidth, int scale_MaxHeight, spi_host_device_t spihost = SPI3_HOST);
     ~ePaperPort();
 
     void EPD_Init();
     void EPD_DispClear(uint8_t color);
     void EPD_Display();
+    void EPD_SrcDisplayCopy(uint8_t *buffer,uint32_t len,uint32_t addlen);
     void Set_Rotation(uint8_t rot); // 0:no 1:90 2:180 3:270
     void Set_Mirror(uint8_t mirr_x,uint8_t mirr_y);
     uint8_t* EPD_GetIMGBuffer();
     void EPD_SetPixel(uint16_t x, uint16_t y, uint16_t color);
-    void EPD_SDcardBmpShakingColor(const char *path,uint16_t x_start, uint16_t y_start);
+    void EPD_SDcardBmpShakingColor(const char *path,uint16_t x_start, uint16_t y_start);        /*只能用于经过抖动之后的 480x800/800x480 BMP图片显示*/
+    void EPD_SDcardIMGShakingColor(const char *path,uint16_t x_start, uint16_t y_start);        /*可以显示jpg,bmp,png格式图片 480x800/800x480*/
+    void EPD_SDcardScaleIMGShakingColor(const char *path,uint16_t x_start, uint16_t y_start);   /*可以显示jpg,bmp,png格式图片,带自动拉伸缩放的*/
 	void EPD_DrawStringCN(uint16_t Xstart, uint16_t Ystart, const char * pString, cFONT* font,uint16_t Color_Foreground, uint16_t Color_Background);
 };
